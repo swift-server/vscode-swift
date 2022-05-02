@@ -183,7 +183,10 @@ export function createTestConfiguration(
         if (xcTestPath !== runtimePath) {
             testEnv.Path = `${xcTestPath};${testEnv.Path ?? process.env.Path}`;
         }
-        const sdkroot = configuration.sdk === "" ? process.env.SDKROOT : configuration.sdk;
+        const sdkroot =
+            configuration.destination.sdk === ""
+                ? process.env.SDKROOT
+                : configuration.destination.sdk;
         if (sdkroot === undefined) {
             return null;
         }

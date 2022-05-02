@@ -185,6 +185,17 @@
         }
       },
       {
+        "title": "Cross compilation (Experimental)",
+        "properties": {
+          "swift.destination.SDK": {
+            "type": "string",
+            "default": "",
+            "description": "The path of the SDK to compile against. The default SDK is determined by the environment on macOS and Windows.",
+            "order": 1
+          }
+        }
+      },
+      {
         "title": "Advanced",
         "properties": {
           "swift.runtimePath": {
@@ -192,12 +203,6 @@
             "default": "",
             "description": "The path of the folder containing the Swift runtime libraries. Only effective when they can't be discovered by RPath.",
             "order": 1
-          },
-          "swift.SDK": {
-            "type": "string",
-            "default": "",
-            "description": "The path of the SDK to compile against (`--sdk` parameter). The default SDK is determined by the environment on macOS and Windows.",
-            "order": 2
           },
           "swift.diagnostics": {
             "type": "boolean",

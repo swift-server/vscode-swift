@@ -46,15 +46,21 @@ This controls the display of Inlay Hints. Inlay Hints are variable annotations i
 
 Trace the communication between Visual Studio Code and the SourceKit-LSP server. The output from this is sent to an Output Window called "Sourcekit Language Server"
 
+### Cross Compilation (Experimental)
+
+Cross-compilation is the act of compiling code for one computer system on a different system. The Swift compiler, which is based on LLVM, is a native cross-compiler and SwiftPM is capable of building a package for custom "destination".
+
+> **NOTE:** Cross-compilation settings are not suggested to be set globally, as different projects often target different destinations.
+
+- **Destination: SDK**
+
+The path of the SDK to compile against. The default destination SDK is determined by the environment on macOS and Windows. This adds the `--sdk` command line parameter to the relevant SwiftPM calls.
+
 ### Advanced
 
 - **Runtime Path**
 
 Where to find Swift runtime libraries. This is mainly of use when these libraries cannot be discovered via the RPATH. On Windows the runtime path is added to the `Path` environment variable. This is of less use on macOS and Linux but will be added to `DYLD_LIBRARY_PATH` and `LD_LIBRARY_PATH` environment variables respectively on each platform. This is of use when supporting non-standard SDK layouts on Windows
-
-- **SDK**
-
-The path of the target SDK to compile against. The default SDK is determined by the environment on macOS and Windows. This is of use when supporting non-standard SDK layouts on Windows and using custom SDKs. This adds the `--sdk` command line parameter to the relevant `swift` calls.
 
 - **Diagnostics**
 

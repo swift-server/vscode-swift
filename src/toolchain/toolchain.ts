@@ -178,7 +178,8 @@ export class SwiftToolchain {
      * @returns path to custom SDK
      */
     private static getCustomSDK(): string | undefined {
-        return configuration.sdk !== "" ? configuration.sdk : undefined;
+        const destination = configuration.destination;
+        return destination.sdk !== "" ? destination.sdk : undefined;
     }
 
     /**

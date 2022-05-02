@@ -24,6 +24,12 @@ export interface LSPConfiguration {
     readonly inlayHintsEnabled: boolean;
 }
 
+/** destination configuration */
+export interface DestinationConfiguration {
+    /** Path to destination sdk */
+    readonly sdk: string;
+}
+
 /**
  * Type-safe wrapper around configuration settings.
  */
@@ -48,6 +54,16 @@ const configuration = {
             },
         };
     },
+    /** destination configuration */
+    get destination(): DestinationConfiguration {
+        return {
+            get sdk(): string {
+                return vscode.workspace
+                    .getConfiguration("swift")
+                    .get<string>("destination.SDK", "");
+            },
+        };
+    },
 
     /** Files and directories to exclude from the Package Dependencies view. */
     get excludePathsFromPackageDependencies(): string[] {
@@ -68,10 +84,6 @@ const configuration = {
     /** Path to folder that include swift runtime */
     get runtimePath(): string {
         return vscode.workspace.getConfiguration("swift").get<string>("runtimePath", "");
-    },
-    /** Path to custom swift sdk */
-    get sdk(): string {
-        return vscode.workspace.getConfiguration("swift").get<string>("SDK", "");
     },
     /** swift build arguments */
     get buildArguments(): string[] {

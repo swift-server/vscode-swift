@@ -17,7 +17,11 @@ import { WorkspaceContext } from "./WorkspaceContext";
 import { FolderContext } from "./FolderContext";
 import { Product } from "./SwiftPackage";
 import configuration from "./configuration";
-import { getSwiftExecutable, swiftRuntimeEnv, withSwiftSDKFlags } from "./utilities/utilities";
+import {
+    getSwiftExecutable,
+    swiftRuntimeEnv,
+    withSwiftDestinationFlags,
+} from "./utilities/utilities";
 import { Version } from "./utilities/version";
 
 /**
@@ -180,7 +184,7 @@ function createBuildTasks(product: Product, folderContext: FolderContext): vscod
  */
 export function createSwiftTask(args: string[], name: string, config?: TaskConfig): vscode.Task {
     const swift = getSwiftExecutable();
-    args = withSwiftSDKFlags(args);
+    args = withSwiftDestinationFlags(args);
     const task = new vscode.Task(
         { type: "swift", command: swift, args: args, cwd: config?.cwd?.fsPath },
         config?.scope ?? vscode.TaskScope.Workspace,

@@ -18,7 +18,7 @@ import configuration from "../configuration";
 import {
     getSwiftExecutable,
     isPathInsidePath,
-    swiftDriverSDKFlags,
+    swiftDriverDestinationFlags,
     swiftRuntimeEnv,
 } from "../utilities/utilities";
 import { Version } from "../utilities/version";
@@ -243,7 +243,7 @@ export class LanguageClientManager {
         const serverPathConfig = lspConfig.serverPath;
         const serverPath =
             serverPathConfig.length > 0 ? serverPathConfig : getSwiftExecutable("sourcekit-lsp");
-        const sdkArguments = swiftDriverSDKFlags(true);
+        const sdkArguments = swiftDriverDestinationFlags(true);
         const sourcekit: langclient.Executable = {
             command: serverPath,
             args: lspConfig.serverArguments.concat(sdkArguments),

@@ -66,21 +66,6 @@ export class WorkspaceContext implements vscode.Disposable {
                         }
                     });
             }
-            // on sdk config change, restart sourcekit-lsp
-            if (event.affectsConfiguration("swift.SDK")) {
-                // FIXME: There is a bug stopping us from restarting SourceKit-LSP directly.
-                // As long as it's fixed we won't need to reload on newer versions.
-                vscode.window
-                    .showInformationMessage(
-                        "Changing the Swift SDK path requires the project be reloaded.",
-                        "Ok"
-                    )
-                    .then(selected => {
-                        if (selected === "Ok") {
-                            vscode.commands.executeCommand("workbench.action.reloadWindow");
-                        }
-                    });
-            }
             // on runtime path config change, regenerate launch.json
             if (event.affectsConfiguration("swift.runtimePath")) {
                 if (!configuration.autoGenerateLaunchConfigurations) {
@@ -97,6 +82,21 @@ export class WorkspaceContext implements vscode.Disposable {
                             this.folders.forEach(
                                 async ctx => await makeDebugConfigurations(ctx, true)
                             );
+                        }
+                    });
+            }
+            // on destination config change, restart sourcekit-lsp
+            if (event.affectsConfiguration("swift.destination.SDK")) {
+                // FIXME: There is a bug stopping us from restarting SourceKit-LSP directly.
+                // As long as it's fixed we won't need to reload on newer versions.
+                vscode.window
+                    .showInformationMessage(
+                        "Changing the destination SDK path requires the project be reloaded.",
+                        "Ok"
+                    )
+                    .then(selected => {
+                        if (selected === "Ok") {
+                            vscode.commands.executeCommand("workbench.action.reloadWindow");
                         }
                     });
             }

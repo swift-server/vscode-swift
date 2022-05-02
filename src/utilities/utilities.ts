@@ -137,67 +137,69 @@ export async function execFileStreamOutput(
  *
  * @param args array of arguments to pass to swift executable
  * @param options execution options
- * @param setSDKFlags whether to set SDK flags
+ * @param setDestinationFlags whether to set destination flags
  */
 export async function execSwift(
     args: string[],
     options: cp.ExecFileOptions = {},
-    setSDKFlags = false,
+    setDestinationFlags = false,
     folderContext?: FolderContext
 ): Promise<{ stdout: string; stderr: string }> {
     const swift = getSwiftExecutable();
-    if (setSDKFlags) {
-        args = withSwiftSDKFlags(args);
+    if (setDestinationFlags) {
+        args = withSwiftDestinationFlags(args);
     }
     return await execFile(swift, args, options, folderContext);
 }
 
 /**
- * Get modified swift arguments with SDK flags.
+ * Get modified swift arguments with config-based destination flags.
  *
  * @param args original commandline arguments
  */
-export function withSwiftSDKFlags(args: string[]): string[] {
+export function withSwiftDestinationFlags(args: string[]): string[] {
     switch (args.length > 0 ? args[0] : null) {
         case "package": {
-            // swift-package requires SDK flags to be placed before subcommand options
+            // swift-package requires destination flags to be placed before arguments
             // eg. ["package", "describe", "--type", "json"] should be turned into
             // ["package", "describe", "--sdk", "/path/to/sdk", "--type", "json"]
             if (args.length <= 2) {
-                return args.concat(swiftpmSDKFlags());
+                return args.concat(swiftpmDestinationFlags());
             }
             const subcommand = args.splice(0, 2);
-            return [...subcommand, ...swiftpmSDKFlags(), ...args];
+            return [...subcommand, ...swiftpmDestinationFlags(), ...args];
         }
         case "build":
         case "run":
         case "test":
-            return args.concat(swiftpmSDKFlags());
+            return args.concat(swiftpmDestinationFlags());
         default:
-            return args.concat(swiftDriverSDKFlags());
+            return args.concat(swiftDriverDestinationFlags());
     }
 }
 
 /**
- * Get SDK flags for SwiftPM
+ * Get destination flags for SwiftPM
  */
-export function swiftpmSDKFlags(): string[] {
-    if (configuration.sdk !== "") {
-        return ["--sdk", configuration.sdk];
+export function swiftpmDestinationFlags(): string[] {
+    const destination = configuration.destination;
+    if (destination.sdk !== "") {
+        return ["--sdk", destination.sdk];
     }
     return [];
 }
 
 /**
- * Get SDK flags for swiftc
+ * Get destination flags for swiftc
  *
  * @param indirect whether to pass the flags by -Xswiftc
  */
-export function swiftDriverSDKFlags(indirect = false): string[] {
-    if (configuration.sdk === "") {
+export function swiftDriverDestinationFlags(indirect = false): string[] {
+    const destination = configuration.destination;
+    if (destination.sdk === "") {
         return [];
     }
-    const args = ["-sdk", configuration.sdk];
+    const args = ["-sdk", destination.sdk];
     return indirect ? args.flatMap(arg => ["-Xswiftc", arg]) : args;
 }
 
