@@ -117,9 +117,20 @@ export interface WorkspaceState {
     version: number;
 }
 
+/** revision + (branch || version)
+ * ref: https://github.com/apple/swift-package-manager/blob/e25a590dc455baa430f2ec97eacc30257c172be2/Sources/Workspace/CheckoutState.swift#L19:L23
+ */
+export interface CheckoutState {
+    revision: string;
+    branch: string | null;
+    version: string | null;
+}
+
 export interface WorkspaceStateDependency {
+    basedOn: WorkspaceStateDependency | null;
     packageRef: { identity: string; kind: string; location: string; name: string };
-    state: { name: string; path?: string };
+    state: { name: string; path?: string; checkoutState?: CheckoutState };
+    subpath: string;
 }
 
 export interface PackagePlugin {
