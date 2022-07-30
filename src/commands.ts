@@ -421,7 +421,7 @@ async function executeTaskWithUI(
  */
 function openInExternalEditor(packageNode: PackageNode) {
     try {
-        const uri = vscode.Uri.parse(packageNode.path, true);
+        const uri = vscode.Uri.parse(packageNode.location, true);
         vscode.env.openExternal(uri);
     } catch {
         // ignore error
