@@ -21,6 +21,8 @@ import { FolderContext } from "./FolderContext";
 import { PackageNode } from "./ui/PackageDependencyProvider";
 import { execSwift } from "./utilities/utilities";
 import { Version } from "./utilities/version";
+import { DarwinCompatibleTarget, SwiftToolchain } from "./toolchain/toolchain";
+import configuration from "./configuration";
 
 /**
  * References:
@@ -428,6 +430,43 @@ function openInExternalEditor(packageNode: PackageNode) {
     }
 }
 
+interface IDawrinCompatibleTarget extends vscode.QuickPickItem {
+    value: DarwinCompatibleTarget;
+    label: string;
+}
+
+async function handleQuickSwitch() {
+    const picker = vscode.window.createQuickPick<IDawrinCompatibleTarget>();
+
+    picker.placeholder = "Select a new target";
+    picker.items = [
+        { value: DarwinCompatibleTarget.macOS, label: "macOS" },
+        { value: DarwinCompatibleTarget.iOS, label: "iOS" },
+    ];
+
+    picker.show();
+
+    const pickedItem = await new Promise<IDawrinCompatibleTarget | undefined>(resolve => {
+        picker.onDidAccept(() => resolve(picker.selectedItems[0]));
+        picker.onDidHide(() => resolve(undefined));
+    });
+
+    picker.busy = true;
+
+    if (pickedItem) {
+        const sdkForTarget = await SwiftToolchain.getSdkForTarget(pickedItem.value);
+        if (sdkForTarget) {
+            configuration.sdk = sdkForTarget;
+        } else {
+            console.warn("unable to obtain new SDK path");
+        }
+
+        picker.busy = false;
+    }
+
+    picker.dispose();
+}
+
 function updateAfterError(result: boolean, folderContext: FolderContext) {
     const triggerResolvedUpdatedEvent = folderContext.hasResolveErrors;
     // set has resolve errors flag
@@ -444,6 +483,11 @@ function updateAfterError(result: boolean, folderContext: FolderContext) {
  * Registers this extension's commands in the given {@link vscode.ExtensionContext context}.
  */
 export function register(ctx: WorkspaceContext) {
+    // This is only available on macOS because its the only OS that has the iOS SDK available.
+    if (process.platform === "darwin") {
+        vscode.commands.registerCommand("swift.quickSwitchTarget", () => handleQuickSwitch());
+    }
+
     ctx.subscriptions.push(
         vscode.commands.registerCommand("swift.resolveDependencies", () =>
             resolveDependencies(ctx)

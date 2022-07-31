@@ -46,6 +46,11 @@ interface SwiftTargetInfo {
     [name: string]: string | object | undefined;
 }
 
+export enum DarwinCompatibleTarget {
+    iOS,
+    macOS,
+}
+
 export class SwiftToolchain {
     constructor(
         public swiftFolderPath: string,
@@ -195,14 +200,35 @@ export class SwiftToolchain {
                 if (process.env.SDKROOT) {
                     return process.env.SDKROOT;
                 }
-                const { stdout } = await execFile("xcrun", ["--sdk", "macosx", "--show-sdk-path"]);
-                return path.join(stdout.trimEnd());
+
+                return this.getSdkForTarget(DarwinCompatibleTarget.macOS);
             }
             case "win32": {
                 return process.env.SDKROOT;
             }
         }
         return undefined;
+    }
+
+    /**
+     * @param target Target to obtain the SDK path for
+     * @returns path to the SDK for the target
+     */
+    public static async getSdkForTarget(
+        target: DarwinCompatibleTarget
+    ): Promise<string | undefined> {
+        let sdkType: string;
+        switch (target) {
+            case DarwinCompatibleTarget.macOS:
+                sdkType = "macosx";
+                break;
+            case DarwinCompatibleTarget.iOS:
+                sdkType = "iphoneos";
+                break;
+        }
+
+        const { stdout } = await execFile("xcrun", ["--sdk", sdkType, "--show-sdk-path"]);
+        return path.join(stdout.trimEnd());
     }
 
     /**

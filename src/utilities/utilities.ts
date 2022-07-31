@@ -252,6 +252,36 @@ export function swiftDriverSDKFlags(indirect = false): string[] {
 }
 
 /**
+ * Get target flags for swiftc
+ *
+ * @param indirect whether to pass the flags by -Xswiftc
+ */
+export function swiftDriverTargetFlags(indirect = false): string[] {
+    const IPHONE_SDK_KIND = "iPhoneOS";
+
+    let args: string[] = [];
+
+    if (configuration.sdk === "") {
+        return args;
+    }
+
+    const sdkKindParts = configuration.sdk.split("/");
+    const sdkKind = sdkKindParts[sdkKindParts.length - 1];
+    if (sdkKind.includes(IPHONE_SDK_KIND)) {
+        // Obtain the iOS version of the SDK.
+        const version = sdkKind.substring(
+            // Trim the prefix
+            sdkKind.length - IPHONE_SDK_KIND.length,
+            // Trim the `.sdk` suffix
+            sdkKind.length - 4
+        );
+        args = ["-target", `arm64-apple-ios${version}`];
+    }
+
+    return indirect ? args.flatMap(arg => ["-Xswiftc", arg]) : args;
+}
+
+/**
  * Get the file name of executable
  *
  * @param exe name of executable to return

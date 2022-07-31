@@ -45,6 +45,11 @@
         "category": "Swift"
       },
       {
+        "command": "swift.quickSwitchTarget",
+        "title": "Switch Target",
+        "category": "Swift"
+      },
+      {
         "command": "swift.resetPackage",
         "title": "Reset Package Dependencies",
         "icon": "$(clear-all)",
