@@ -23,6 +23,7 @@ import {
     swiftDriverSDKFlags,
     buildPathFlags,
     swiftRuntimeEnv,
+    swiftDriverTargetFlags,
 } from "../utilities/utilities";
 import { Version } from "../utilities/version";
 import { FolderEvent, WorkspaceContext } from "../WorkspaceContext";
@@ -345,6 +346,7 @@ export class LanguageClientManager {
             serverPathConfig.length > 0 ? serverPathConfig : getSwiftExecutable("sourcekit-lsp");
         const sdkArguments = [
             ...swiftDriverSDKFlags(true),
+            ...swiftDriverTargetFlags(true),
             ...filterArguments(
                 configuration.buildArguments.concat(buildPathFlags()),
                 LanguageClientManager.buildArgumentFilter
