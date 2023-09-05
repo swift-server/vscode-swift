@@ -36,6 +36,7 @@ import { setSnippetContextKey } from "./SwiftSnippets";
 import { TestCoverageReportProvider } from "./coverage/TestCoverageReport";
 import { CommentCompletionProviders } from "./editor/CommentCompletion";
 import { TestCoverageRenderer } from "./coverage/TestCoverageRenderer";
+import { DebugAdapter } from "./debugger/debugAdapter";
 
 /**
  * Context for whole workspace. Holds array of contexts for each workspace folder
@@ -69,7 +70,7 @@ export class WorkspaceContext implements vscode.Disposable {
         this.commentCompletionProvider = new CommentCompletionProviders();
         this.testCoverageRenderer = new TestCoverageRenderer(this);
 
-        const onChangeConfig = vscode.workspace.onDidChangeConfiguration(event => {
+        const onChangeConfig = vscode.workspace.onDidChangeConfiguration(async event => {
             // on toolchain config change, reload window
             if (event.affectsConfiguration("swift.path")) {
                 vscode.window
@@ -112,7 +113,7 @@ export class WorkspaceContext implements vscode.Disposable {
                     .then(async selected => {
                         if (selected === "Update") {
                             this.folders.forEach(
-                                async ctx => await makeDebugConfigurations(ctx, true)
+                                async ctx => await makeDebugConfigurations(ctx, undefined, true)
                             );
                         }
                     });
@@ -131,10 +132,28 @@ export class WorkspaceContext implements vscode.Disposable {
                     .then(async selected => {
                         if (selected === "Update") {
                             this.folders.forEach(
-                                async ctx => await makeDebugConfigurations(ctx, true)
+                                async ctx => await makeDebugConfigurations(ctx, undefined, true)
                             );
                         }
                     });
+            }
+            // on change of swift debugger type
+            if (
+                event.affectsConfiguration("swift.debugger.useDebugAdapterFromToolchain") ||
+                event.affectsConfiguration("swift.debugger.path")
+            ) {
+                if (configuration.debugger.useDebugAdapterFromToolchain) {
+                    if (!(await DebugAdapter.verifyDebugAdapterExists(this))) {
+                        return;
+                    }
+                }
+                this.folders.forEach(
+                    async ctx =>
+                        await makeDebugConfigurations(
+                            ctx,
+                            "Launch configurations need to be updated after changing the debug adapter."
+                        )
+                );
             }
         });
         const backgroundCompilationOnDidSave = BackgroundCompilation.start(this);
@@ -410,6 +429,10 @@ export class WorkspaceContext implements vscode.Disposable {
 
     /** find LLDB version and setup path in CodeLLDB */
     async setLLDBVersion() {
+        // check we are using CodeLLDB
+        if (DebugAdapter.adapterName !== "lldb") {
+            return;
+        }
         const libPathResult = await getLLDBLibPath(this.toolchain);
         if (!libPathResult.success) {
             // if failure message is undefined then fail silently
@@ -616,9 +639,10 @@ export class WorkspaceContext implements vscode.Disposable {
     private needToAutoGenerateLaunchConfig() {
         let autoGenerate = false;
         this.folders.forEach(folder => {
-            autoGenerate =
-                autoGenerate ||
-                configuration.folder(folder.workspaceFolder).autoGenerateLaunchConfigurations;
+            const requiresAutoGenerate =
+                configuration.folder(folder.workspaceFolder).autoGenerateLaunchConfigurations &&
+                folder.swiftPackage.executableProducts.length > 0;
+            autoGenerate = autoGenerate || requiresAutoGenerate;
         });
         return autoGenerate;
     }

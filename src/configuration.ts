@@ -32,6 +32,14 @@ export interface LSPConfiguration {
     readonly disable: boolean;
 }
 
+/** debugger configuration */
+export interface DebuggerConfiguration {
+    /** Are we using debug adapter provided with Toolchain */
+    readonly useDebugAdapterFromToolchain: boolean;
+    /** Return path to debug adapter */
+    readonly debugAdapterPath: string;
+}
+
 /** workspace folder configuration */
 export interface FolderConfiguration {
     /** Environment variables to set when running tests */
@@ -115,6 +123,21 @@ const configuration = {
                 return vscode.workspace
                     .getConfiguration("swift", workspaceFolder)
                     .get<boolean>("searchSubfoldersForPackages", false);
+            },
+        };
+    },
+
+    /** debugger configuration */
+    get debugger(): DebuggerConfiguration {
+        return {
+            /** Should we use the debug adapter included in the Toolchain or CodeLLDB */
+            get useDebugAdapterFromToolchain(): boolean {
+                return vscode.workspace
+                    .getConfiguration("swift.debugger")
+                    .get<boolean>("useDebugAdapterFromToolchain", false);
+            },
+            get debugAdapterPath(): string {
+                return vscode.workspace.getConfiguration("swift.debugger").get<string>("path", "");
             },
         };
     },
