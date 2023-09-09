@@ -111,12 +111,12 @@
       },
       {
         "command": "swift.switchPlatform",
-        "title": "Select Target Platform",
+        "title": "Select Target Platform...",
         "category": "Swift"
       },
       {
         "command": "swift.selectXcodeDeveloperDir",
-        "title": "Select Xcode Developer Dir",
+        "title": "Select Xcode Developer Dir...",
         "category": "Swift"
       },
       {
@@ -147,6 +147,11 @@
       {
         "command": "swift.toggleTestCoverage",
         "title": "Toggle Display of Test Coverage Results",
+        "category": "Swift"
+      },
+      {
+        "command": "swift.attachDebugger",
+        "title": "Attach to Process...",
         "category": "Swift"
       }
     ],
@@ -537,6 +542,10 @@
         {
           "command": "swift.runPluginTask",
           "when": "swift.packageHasPlugins"
+        },
+        {
+          "command": "swift.attachDebugger",
+          "when": "swift.lldbVSCodeAvailable"
         }
       ],
       "editor/context": [
@@ -866,8 +875,7 @@
               },
               "pid": {
                 "type": [
-                  "number",
-                  "string"
+                  "number"
                 ],
                 "description": "System process ID to attach to."
               },

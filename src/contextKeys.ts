@@ -59,6 +59,13 @@ const contextKeys = {
     set fileIsSnippet(value: boolean) {
         vscode.commands.executeCommand("setContext", "swift.fileIsSnippet", value);
     },
+
+    /**
+     * Whether current active file is a Snippet
+     */
+    set lldbVSCodeAvailable(value: boolean) {
+        vscode.commands.executeCommand("setContext", "swift.lldbVSCodeAvailable", value);
+    },
 };
 
 export default contextKeys;

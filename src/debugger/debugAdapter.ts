@@ -16,12 +16,13 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import { WorkspaceContext } from "../WorkspaceContext";
 import configuration from "../configuration";
+import contextKeys from "../contextKeys";
 
 /**
  * Class managing which debug adapter we are using. Will only setup lldb-vscode if it is available.
  */
 export class DebugAdapter {
-    static debugAdapaterExists = false;
+    private static debugAdapaterExists = false;
 
     /** Debug adapter name */
     static get adapterName(): string {
@@ -54,9 +55,11 @@ export class DebugAdapter {
             }
             workspace.outputChannel.log(`Failed to find ${lldbDebugAdapterPath}`);
             this.debugAdapaterExists = false;
+            contextKeys.lldbVSCodeAvailable = false;
             return false;
         }
         this.debugAdapaterExists = true;
+        contextKeys.lldbVSCodeAvailable = true;
         return true;
     }
 

@@ -21,11 +21,12 @@ import { createSwiftTask, SwiftTaskProvider } from "./SwiftTaskProvider";
 import { FolderContext } from "./FolderContext";
 import { PackageNode } from "./ui/PackageDependencyProvider";
 import { withQuickPick } from "./ui/QuickPick";
-import { execSwift } from "./utilities/utilities";
+import { execSwift, getErrorDescription } from "./utilities/utilities";
 import { Version } from "./utilities/version";
 import { DarwinCompatibleTarget, SwiftToolchain } from "./toolchain/toolchain";
 import { debugSnippet, runSnippet } from "./SwiftSnippets";
 import { debugLaunchConfig, getLaunchConfiguration } from "./debugger/launch";
+import { execFile } from "./utilities/utilities";
 
 /**
  * References:
@@ -620,6 +621,39 @@ function toggleTestCoverageDisplay(workspaceContext: WorkspaceContext) {
     workspaceContext.toggleTestCoverageDisplay();
 }
 
+async function attachDebugger(workspaceContext: WorkspaceContext) {
+    // use LLDB to get list of processes
+    const lldb = workspaceContext.toolchain.getToolchainExecutable("lldb");
+    try {
+        const { stdout } = await execFile(lldb, [
+            "--batch",
+            "--no-lldbinit",
+            "--one-line",
+            "platform process list --show-args --all-users",
+        ]);
+        const entries = stdout.split("\n");
+        const processPickItems = entries.flatMap(line => {
+            const match = /^(\d+)\s+\d+\s+\S+\s+\S+\s+(.+)$/.exec(line);
+            if (match) {
+                return [{ pid: parseInt(match[1]), label: `${match[1]}: ${match[2]}` }];
+            } else {
+                return [];
+            }
+        });
+        await withQuickPick("Select Process", processPickItems, async selected => {
+            const debugConfig: vscode.DebugConfiguration = {
+                type: "swift-lldb",
+                request: "attach",
+                name: "Attach",
+                pid: selected.pid,
+            };
+            await vscode.debug.startDebugging(undefined, debugConfig);
+        });
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to run LLDB: ${getErrorDescription(error)}`);
+    }
+}
+
 function updateAfterError(result: boolean, folderContext: FolderContext) {
     const triggerResolvedUpdatedEvent = folderContext.hasResolveErrors;
     // set has resolve errors flag
@@ -689,6 +723,7 @@ export function register(ctx: WorkspaceContext) {
         }),
         vscode.commands.registerCommand("swift.selectXcodeDeveloperDir", () =>
             selectXcodeDeveloperDir()
-        )
+        ),
+        vscode.commands.registerCommand("swift.attachDebugger", () => attachDebugger(ctx))
     );
 }
