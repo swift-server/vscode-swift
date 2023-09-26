@@ -23,7 +23,7 @@ import {
     swiftLibraryPathKey,
     getErrorDescription,
 } from "./utilities/utilities";
-import { getLLDBLibPath } from "./debugger/lldb";
+import { checkLLDBInstalled, getLLDBLibPath } from "./debugger/lldb";
 import { LanguageClientManager } from "./sourcekit-lsp/LanguageClientManager";
 import { TemporaryFolder } from "./utilities/tempFolder";
 import { SwiftToolchain } from "./toolchain/toolchain";
@@ -406,6 +406,22 @@ export class WorkspaceContext implements vscode.Disposable {
     observeFolders(fn: WorkspaceFoldersObserver): vscode.Disposable {
         this.observers.add(fn);
         return { dispose: () => this.observers.delete(fn) };
+    }
+
+    async setupLLDB() {
+        await checkLLDBInstalled().then(
+            async result => {
+                if (result) {
+                    this.setLLDBVersion();
+                }
+            },
+            error => {
+                const errorMessage = `Error: ${getErrorDescription(error)}`;
+                vscode.window.showErrorMessage(
+                    `Failed to setup CodeLLDB for debugging of Swift code. Debugging may produce unexpected results. ${errorMessage}`
+                );
+            }
+        );
     }
 
     /** find LLDB version and setup path in CodeLLDB */

@@ -429,6 +429,12 @@
             "description": "The path of the SDK to compile against (`--sdk` parameter). The default SDK is determined by the environment on macOS and Windows.",
             "order": 3
           },
+          "swift.skipCodeLLDBCheck": {
+            "type": "boolean",
+            "default": false,
+            "description": "Skip check for CodeLLDB being installed.",
+            "order": 4
+          },
           "swift.diagnostics": {
             "type": "boolean",
             "default": false,
@@ -694,9 +700,6 @@
       ]
     }
   },
-  "extensionDependencies": [
-    "vadimcn.vscode-lldb"
-  ],
   "scripts": {
     "vscode:prepublish": "npm run esbuild-base -- --minify",
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node16",

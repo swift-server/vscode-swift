@@ -48,7 +48,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Api> {
         context.subscriptions.push(workspaceContext);
 
         // setup swift version of LLDB. Don't await on this as it can run in the background
-        workspaceContext.setLLDBVersion();
+        workspaceContext.setupLLDB();
 
         // listen for workspace folder changes and active text editor changes
         workspaceContext.setupEventListeners();

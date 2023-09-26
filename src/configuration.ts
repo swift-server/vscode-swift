@@ -173,6 +173,10 @@ const configuration = {
             .get<boolean>("backgroundCompilation", false);
     },
     /** output additional diagnostics */
+    get skipCodeLLDBCheck(): boolean {
+        return vscode.workspace.getConfiguration("swift").get<boolean>("skipCodeLLDBCheck", false);
+    },
+    /** output additional diagnostics */
     get diagnostics(): boolean {
         return vscode.workspace.getConfiguration("swift").get<boolean>("diagnostics", false);
     },
