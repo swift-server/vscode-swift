@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 import configuration from "../configuration";
 import { FolderContext } from "../FolderContext";
@@ -113,6 +114,7 @@ function createExecutableConfigurations(ctx: FolderContext): vscode.DebugConfigu
     const executableProducts = ctx.swiftPackage.executableProducts;
     const { folder, nameSuffix } = getFolderAndNameSuffix(ctx);
     const buildDirectory = BuildFlags.buildDirectoryFromWorkspacePath(folder, true);
+    const binaryExtension = process.platform === "win32" ? ".exe" : "";
     return executableProducts.flatMap(product => {
         return [
             {
@@ -120,7 +122,7 @@ function createExecutableConfigurations(ctx: FolderContext): vscode.DebugConfigu
                 request: "launch",
                 sourceLanguages: ["swift"],
                 name: `Debug ${product.name}${nameSuffix}`,
-                program: `${buildDirectory}/debug/` + product.name,
+                program: path.join(buildDirectory, "debug", product.name + binaryExtension),
                 args: [],
                 cwd: folder,
                 preLaunchTask: `swift: Build Debug ${product.name}${nameSuffix}`,
@@ -131,7 +133,7 @@ function createExecutableConfigurations(ctx: FolderContext): vscode.DebugConfigu
                 request: "launch",
                 sourceLanguages: ["swift"],
                 name: `Release ${product.name}${nameSuffix}`,
-                program: `${buildDirectory}/release/` + product.name,
+                program: path.join(buildDirectory, "release", product.name + binaryExtension),
                 args: [],
                 cwd: folder,
                 preLaunchTask: `swift: Build Release ${product.name}${nameSuffix}`,
@@ -159,7 +161,7 @@ export function createSnippetConfiguration(
         request: "launch",
         sourceLanguages: ["swift"],
         name: `Run ${snippetName}`,
-        program: `${buildDirectory}/debug/${snippetName}`,
+        program: path.join(buildDirectory, "debug", snippetName),
         args: [],
         cwd: folder,
         env: swiftRuntimeEnv(true),
@@ -235,7 +237,11 @@ export function createTestConfiguration(
             request: "launch",
             sourceLanguages: ["swift"],
             name: `Test ${ctx.swiftPackage.name}`,
-            program: `${buildDirectory}/debug/${ctx.swiftPackage.name}PackageTests.xctest`,
+            program: path.join(
+                buildDirectory,
+                "debug",
+                ctx.swiftPackage.name + "PackageTests.xctest"
+            ),
             cwd: folder,
             env: testEnv,
             preRunCommands: preRunCommands,
