@@ -27,6 +27,7 @@ import { DarwinCompatibleTarget, SwiftToolchain } from "./toolchain/toolchain";
 import { debugSnippet, runSnippet } from "./SwiftSnippets";
 import { debugLaunchConfig, getLaunchConfiguration } from "./debugger/launch";
 import { execFile } from "./utilities/utilities";
+import { MacroExpansionParams, macroExpansionRequest } from "./sourcekit-lsp/lspExtensions";
 
 /**
  * References:
@@ -477,6 +478,61 @@ function insertFunctionComment(workspaceContext: WorkspaceContext) {
     workspaceContext.commentCompletionProvider.insert(activeEditor, line);
 }
 
+function expandMacro(workspaceContext: WorkspaceContext) {
+    const activeEditor = vscode.window.activeTextEditor;
+    const document = activeEditor?.document;
+    const selection = activeEditor?.selection;
+    if (!document || !selection) {
+        return;
+    }
+    return workspaceContext.languageClientManager.useLanguageClient(async (client, token) => {
+        const params: MacroExpansionParams = {
+            textDocument: client.code2ProtocolConverter.asTextDocumentIdentifier(document),
+            range: client.code2ProtocolConverter.asRange(selection),
+        };
+        const expansions = await client.sendRequest(macroExpansionRequest, params, token);
+        if (expansions && expansions.length >= 1) {
+            // Present the macro expansion using a custom in-memory URI scheme
+            // TODO: This will currently reregister the provider for this scheme
+            // every time a new macro expansion is requested. It looks like the
+            // old expansions will be closed correctly, but perhaps there's
+            // a more elegant solution to this?
+            const scheme = "swift-macro-expansion";
+            const provider = vscode.workspace.registerTextDocumentContentProvider(scheme, {
+                provideTextDocumentContent: async uri => expansions[+uri.fragment].sourceText,
+            });
+            workspaceContext.subscriptions.push(provider);
+            console.log(expansions);
+            // TODO: Use a proper URI scheme. See the discussion in
+            // https://github.com/apple/sourcekit-lsp/pull/892#discussion_r1358428808
+            // Perhaps we'd even want to have the server support these URIs directly?
+            const locations = expansions.map(
+                (_, i) =>
+                    new vscode.Location(
+                        vscode.Uri.from({
+                            scheme,
+                            path: "Macro Expansion.swift",
+                            fragment: `${i}`,
+                        }),
+                        new vscode.Position(0, 0)
+                    )
+            );
+            // TODO: Find a better way to preview multiple expansions, perhaps
+            // using a diff-style view showing the expandeed fragments within
+            // the peek editor?
+            await vscode.commands.executeCommand(
+                "editor.action.peekLocations",
+                document.uri,
+                client.protocol2CodeConverter.asPosition(expansions[0].position),
+                locations,
+                "peek"
+            );
+        } else {
+            vscode.window.showWarningMessage("Could not find a macro expansion.");
+        }
+    });
+}
+
 /** Restart the SourceKit-LSP server */
 function restartLSPServer(workspaceContext: WorkspaceContext) {
     workspaceContext.languageClientManager.restart();
@@ -690,6 +746,9 @@ export function register(ctx: WorkspaceContext) {
         vscode.commands.registerCommand("swift.insertFunctionComment", () =>
             insertFunctionComment(ctx)
         ),
+        vscode.commands.registerCommand("swift.expandMacro", () => {
+            expandMacro(ctx);
+        }),
         vscode.commands.registerCommand("swift.showTestCoverageReport", () =>
             showTestCoverageReport(ctx)
         ),

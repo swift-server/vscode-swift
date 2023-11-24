@@ -140,6 +140,11 @@
         "category": "Swift"
       },
       {
+        "command": "swift.expandMacro",
+        "title": "Expand Macro",
+        "category": "Swift"
+      },
+      {
         "command": "swift.showTestCoverageReport",
         "title": "Show Test Coverage Report",
         "category": "Swift"
