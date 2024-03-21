@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: vscode-swift:22.04-5.10
+    build:
+      args:
+        ubuntu_version: "focal"
+        swift_version: "5.10"
+
+  test:
+    image: vscode-swift:22.04-5.10
+
+  shell:
+    image: vscode-swift:22.04-5.10
