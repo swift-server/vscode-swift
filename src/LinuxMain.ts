@@ -21,7 +21,10 @@ import { pathExists } from "./utilities/utilities";
 export class LinuxMain {
     private fileWatcher: vscode.FileSystemWatcher;
 
-    constructor(folder: vscode.Uri, public exists: boolean) {
+    constructor(
+        folder: vscode.Uri,
+        public exists: boolean
+    ) {
         this.fileWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(folder, "Tests/LinuxMain.swift"),
             false,

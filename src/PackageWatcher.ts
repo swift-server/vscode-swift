@@ -26,7 +26,10 @@ export class PackageWatcher {
     private packageFileWatcher?: vscode.FileSystemWatcher;
     private resolvedFileWatcher?: vscode.FileSystemWatcher;
 
-    constructor(private folderContext: FolderContext, private workspaceContext: WorkspaceContext) {}
+    constructor(
+        private folderContext: FolderContext,
+        private workspaceContext: WorkspaceContext
+    ) {}
 
     /**
      * Creates and installs {@link vscode.FileSystemWatcher file system watchers} for

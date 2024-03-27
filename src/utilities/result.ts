@@ -16,7 +16,10 @@
  * Wrapper class for a Result that might contain either success or failure
  */
 export class Result<Success> {
-    private constructor(readonly success?: Success, readonly failure?: unknown) {}
+    private constructor(
+        readonly success?: Success,
+        readonly failure?: unknown
+    ) {}
 
     /** Return a successful result */
     static makeSuccess<Success>(success: Success): Result<Success> {

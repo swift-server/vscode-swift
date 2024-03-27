@@ -19,7 +19,10 @@ import * as vscode from "vscode";
  * Inspiration for this code came from https://github.com/fappelman/swift-add-documentation
  */
 export class DocumentParser {
-    constructor(readonly document: vscode.TextDocument, private position: vscode.Position) {}
+    constructor(
+        readonly document: vscode.TextDocument,
+        private position: vscode.Position
+    ) {}
 
     /**
      * Match regular expression at current position in document. Move position to just

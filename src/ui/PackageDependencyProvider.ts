@@ -70,7 +70,11 @@ export class PackageNode {
  * A file or directory in the Package Dependencies {@link vscode.TreeView TreeView}.
  */
 class FileNode {
-    constructor(public name: string, public path: string, public isDirectory: boolean) {}
+    constructor(
+        public name: string,
+        public path: string,
+        public isDirectory: boolean
+    ) {}
 
     toTreeItem(): vscode.TreeItem {
         const item = new vscode.TreeItem(

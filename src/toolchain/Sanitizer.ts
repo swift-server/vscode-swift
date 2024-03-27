@@ -16,7 +16,10 @@ import * as path from "path";
 import { SwiftToolchain } from "./toolchain";
 
 export class Sanitizer {
-    private constructor(public type: "thread" | "address", public toolchain: SwiftToolchain) {}
+    private constructor(
+        public type: "thread" | "address",
+        public toolchain: SwiftToolchain
+    ) {}
 
     /** create sanitizer */
     static create(type: string, toolchain: SwiftToolchain): Sanitizer | undefined {

@@ -57,7 +57,10 @@ export class WorkspaceContext implements vscode.Disposable {
     private lastFocusUri: vscode.Uri | undefined;
     private initialisationFinished = false;
 
-    private constructor(public tempFolder: TemporaryFolder, public toolchain: SwiftToolchain) {
+    private constructor(
+        public tempFolder: TemporaryFolder,
+        public toolchain: SwiftToolchain
+    ) {
         this.outputChannel = new SwiftOutputChannel();
         this.statusItem = new StatusItem();
         this.languageClientManager = new LanguageClientManager(this);

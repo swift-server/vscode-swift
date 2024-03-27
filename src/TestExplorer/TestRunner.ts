@@ -647,7 +647,10 @@ class DarwinTestItemFinder implements TestItemFinder {
 
 /** Defines how to find test items given a test id from XCTest output on non-Darwin platforms */
 class NonDarwinTestItemFinder implements TestItemFinder {
-    constructor(public testItems: vscode.TestItem[], public folderContext: FolderContext) {}
+    constructor(
+        public testItems: vscode.TestItem[],
+        public folderContext: FolderContext
+    ) {}
 
     /**
      * Get test item index from id for non Darwin platforms. It is a little harder to
@@ -708,7 +711,10 @@ class NonDarwinTestItemFinder implements TestItemFinder {
  * Store state of current test run output parse
  */
 class TestRunnerTestRunState implements iTestRunState {
-    constructor(private testItemFinder: TestItemFinder, private testRun: vscode.TestRun) {}
+    constructor(
+        private testItemFinder: TestItemFinder,
+        private testRun: vscode.TestRun
+    ) {}
 
     public currentTestItem?: vscode.TestItem;
     public lastTestItem?: vscode.TestItem;
@@ -788,7 +794,10 @@ class TestRunnerTestRunState implements iTestRunState {
 }
 
 class TestRunnerXUnitTestState implements iXUnitTestState {
-    constructor(private testItemFinder: TestItemFinder, private testRun: vscode.TestRun) {}
+    constructor(
+        private testItemFinder: TestItemFinder,
+        private testRun: vscode.TestRun
+    ) {}
 
     passTest(id: string, duration: number): void {
         const index = this.testItemFinder.getIndex(id);

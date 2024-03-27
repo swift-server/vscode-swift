@@ -19,7 +19,11 @@ export interface VersionInterface {
 }
 
 export class Version implements VersionInterface {
-    constructor(readonly major: number, readonly minor: number, readonly patch: number) {}
+    constructor(
+        readonly major: number,
+        readonly minor: number,
+        readonly patch: number
+    ) {}
 
     static fromString(s: string): Version | undefined {
         const numbers = s.match(/(\d+).(\d+)(?:.(\d+))?/);
