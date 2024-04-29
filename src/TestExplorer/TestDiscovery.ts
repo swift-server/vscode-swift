@@ -2,7 +2,7 @@
 //
 // This source file is part of the VSCode Swift open source project
 //
-// Copyright (c) 2021-2024 the VSCode Swift project authors
+// Copyright (c) 2024 the VSCode Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -15,12 +15,26 @@
 import * as vscode from "vscode";
 import { FolderContext } from "../FolderContext";
 import { TargetType } from "../SwiftPackage";
-import { LSPTestItem } from "../sourcekit-lsp/lspExtensions";
+
+/** Test function definition */
+export interface TestFunction {
+    name: string;
+    location?: vscode.Location;
+}
 
 /** Test class definition */
-export interface TestClass extends Omit<Omit<LSPTestItem, "location">, "children"> {
-    location: vscode.Location | undefined;
-    children: TestClass[];
+export interface TestClass {
+    name: string;
+    location?: vscode.Location;
+    extension?: boolean;
+    functions: TestFunction[];
+}
+
+/** Test target definition */
+export interface TestTarget {
+    name: string;
+    folder?: vscode.Uri;
+    classes: TestClass[];
 }
 
 /**
@@ -31,26 +45,22 @@ export interface TestClass extends Omit<Omit<LSPTestItem, "location">, "children
  * @param folderContext Folder test classes came
  * @param testClasses Array of test classes
  */
-export function updateTestsFromClasses(folderContext: FolderContext, testItems: TestClass[]) {
+export function updateTestsFromClasses(folderContext: FolderContext, testClasses: TestClass[]) {
     const testExplorer = folderContext.testExplorer;
     if (!testExplorer) {
         return;
     }
     const targets = folderContext.swiftPackage.getTargets(TargetType.test).map(target => {
-        const filteredItems = testItems.filter(
-            testItem =>
-                testItem.location &&
-                folderContext.swiftPackage.getTarget(testItem.location.uri.fsPath) === target
+        const classes = testClasses.filter(
+            testClass =>
+                testClass.location &&
+                folderContext.swiftPackage.getTarget(testClass.location.uri.fsPath) === target
         );
         return {
-            id: target.name,
-            label: target.name,
-            children: filteredItems,
-            location: undefined,
-            disabled: false,
-            style: "test-target",
-            tags: [],
-        } as TestClass;
+            name: target.name,
+            folder: vscode.Uri.file(target.path),
+            classes: classes,
+        };
     });
     updateTests(testExplorer.controller, targets);
 }
@@ -58,96 +68,130 @@ export function updateTestsFromClasses(folderContext: FolderContext, testItems: 
 /**
  * Update Test Controller TestItems based off array of TestTargets
  * @param testController Test controller
- * @param testItems Array of TestClasses
+ * @param testTargets Array of TestTargets
  * @param filterFile Filter test deletion just for tests in the one file
  */
 export function updateTests(
     testController: vscode.TestController,
-    testItems: TestClass[],
+    testTargets: TestTarget[],
     filterFile?: vscode.Uri
 ) {
-    const incomingTestsLookup = createIncomingTestLookup(testItems);
-    function removeOldTests(testItem: vscode.TestItem) {
-        testItem.children.forEach(child => removeOldTests(child));
-
-        // If the existing item isn't in the map
-        if (
-            !incomingTestsLookup.get(testItem.id) &&
-            (!filterFile || testItem.uri?.fsPath === filterFile.fsPath)
-        ) {
-            const collection = testItem.parent ? testItem.parent.children : testController.items;
-            collection.delete(testItem.id);
+    // remove TestItems that aren't in testTarget list
+    testController.items.forEach(targetItem => {
+        const testTarget = testTargets.find(item => item.name === targetItem.id);
+        if (testTarget) {
+            const targetId = targetItem.id;
+            targetItem.children.forEach(classItem => {
+                const testClass = testTarget.classes.find(
+                    item => `${targetId}.${item.name}` === classItem.id
+                );
+                if (testClass) {
+                    const classId = classItem.id;
+                    classItem.children.forEach(functionItem => {
+                        // if we are filtering based on targets being one file and this
+                        // function isn't in the file then ignore
+                        if (filterFile && functionItem.uri?.fsPath !== filterFile.fsPath) {
+                            return;
+                        }
+                        const testFunction = testClass.functions.find(
+                            item => `${classId}/${item.name}` === functionItem.id
+                        );
+                        if (!testFunction) {
+                            classItem.children.delete(functionItem.id);
+                        }
+                    });
+                    if (classItem.children.size === 0) {
+                        targetItem.children.delete(classItem.id);
+                    }
+                } else {
+                    if (!filterFile) {
+                        targetItem.children.delete(classItem.id);
+                    } else if (classItem.uri?.fsPath === filterFile.fsPath) {
+                        // If filtering on a file and a class is in that file and all its
+                        // functions are in that file then delete the class
+                        let allInFilteredFile = true;
+                        classItem.children.forEach(func => {
+                            if (func.uri?.fsPath !== filterFile.fsPath) {
+                                allInFilteredFile = false;
+                            }
+                        });
+                        if (allInFilteredFile) {
+                            targetItem.children.delete(classItem.id);
+                        }
+                    }
+                }
+            });
+            if (targetItem.children.size === 0) {
+                testController.items.delete(targetItem.id);
+            }
+        } else if (!filterFile) {
+            testController.items.delete(targetItem.id);
         }
-    }
-
-    // Skip removing tests if the test explorer is empty
-    if (testController.items.size !== 0) {
-        testController.items.forEach(removeOldTests);
-    }
-
-    // Add/update the top level test items. upsertTestItem will descend the tree of children adding them as well.
-    testItems.forEach(testItem => {
-        upsertTestItem(testController, testItem);
     });
 
-    testController.items.forEach(item => {
-        testController.items.add(item);
+    // Add in new items, update items already in place
+    testTargets.forEach(testTarget => {
+        const targetItem =
+            testController.items.get(testTarget.name) ??
+            createTopLevelTestItem(testController, testTarget.name, testTarget.folder);
+        testTarget.classes.forEach(testClass => {
+            const classItem = updateChildTestItem(
+                testController,
+                targetItem,
+                testClass.name,
+                ".",
+                testClass.extension !== true,
+                testClass.location
+            );
+            if (classItem) {
+                testClass.functions.forEach(testFunction => {
+                    updateChildTestItem(
+                        testController,
+                        classItem,
+                        testFunction.name,
+                        "/",
+                        true,
+                        testFunction.location
+                    );
+                });
+            }
+        });
     });
 }
 
-/**
- * Create a lookup of the incoming tests we can compare to the existing list of tests
- * to produce a list of tests that are no longer present. If a filterFile is specified we
- * scope this work to just the tests inside that file.
- */
-function createIncomingTestLookup(
-    collection: TestClass[],
-    filterFile?: vscode.Uri
-): Map<string, TestClass> {
-    const dictionary = new Map<string, TestClass>();
-    function traverse(testItem: TestClass) {
-        // If we are filtering based on tests being one file and this
-        // function isn't in the file then ignore
-        if (!filterFile || testItem.location?.uri.fsPath === filterFile.fsPath) {
-            dictionary.set(testItem.id, testItem);
-            testItem.children.forEach(item => traverse(item));
-        }
-    }
-    collection.forEach(item => traverse(item));
-    return dictionary;
-}
-
-/**
- * Updates the existing `vscode.TestItem` if it exists with the same ID as the `TestClass`,
- * otherwise creates an add a new one. The location on the returned vscode.TestItem is always updated.
- */
-function upsertTestItem(
+/** Create top level test item and add it to the test controller */
+function createTopLevelTestItem(
     testController: vscode.TestController,
-    testItem: TestClass,
-    parent?: vscode.TestItem
-) {
-    // This is a temporary gate on adding swift-testing tests until there is code to
-    // run them. See https://github.com/swift-server/vscode-swift/issues/757
-    if (testItem.style === "swift-testing") {
-        return;
+    name: string,
+    uri?: vscode.Uri
+): vscode.TestItem {
+    const testItem = testController.createTestItem(name, name, uri);
+    testController.items.add(testItem);
+    return testItem;
+}
+
+/** Update a child test item or if it doesn't exist create a new test item  */
+function updateChildTestItem(
+    testController: vscode.TestController,
+    parent: vscode.TestItem,
+    name: string,
+    separator: string,
+    addNewItem: boolean,
+    location?: vscode.Location
+): vscode.TestItem | undefined {
+    const id = `${parent.id}${separator}${name}`;
+    const testItem = parent.children.get(id);
+    if (testItem) {
+        if (testItem.uri?.fsPath === location?.uri.fsPath || location === undefined) {
+            testItem.range = location?.range;
+            return testItem;
+        }
+        parent.children.delete(testItem.id);
+    } else if (addNewItem === false) {
+        return undefined;
     }
-
-    const collection = parent === undefined ? testController.items : parent.children;
-
-    const newItem =
-        collection.get(testItem.id) ??
-        testController.createTestItem(testItem.id, testItem.label, testItem.location?.uri);
-
-    // Manually add the test style as a tag so we can filter by test type.
-    newItem.tags = [{ id: testItem.style }, ...testItem.tags];
-    newItem.label = testItem.label;
-    newItem.range = testItem.location?.range;
-
-    // Performs an upsert based on whether a test item exists in the collection with the same id.
-    // If no parent is provided operate on the testController's root items.
-    collection.add(newItem);
-
-    testItem.children.forEach(child => {
-        upsertTestItem(testController, child, newItem);
-    });
+    const newTestItem = testController.createTestItem(id, name, location?.uri);
+    newTestItem.range = location?.range;
+    parent.children.add(newTestItem);
+    return newTestItem;
 }

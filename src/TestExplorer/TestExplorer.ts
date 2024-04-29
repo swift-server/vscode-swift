@@ -2,7 +2,7 @@
 //
 // This source file is part of the VSCode Swift open source project
 //
-// Copyright (c) 2021-2024 the VSCode Swift project authors
+// Copyright (c) 2021-2022 the VSCode Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -24,8 +24,6 @@ import { buildOptions, getBuildAllTask } from "../SwiftTaskProvider";
 import { SwiftExecOperation, TaskOperation } from "../TaskQueue";
 import * as TestDiscovery from "./TestDiscovery";
 import { TargetType } from "../SwiftPackage";
-import { parseTestsFromSwiftTestListOutput } from "./SPMTestDiscovery";
-import { parseTestsFromDocumentSymbols } from "./DocumentSymbolTestDiscovery";
 
 /** Build test explorer UI */
 export class TestExplorer {
@@ -149,27 +147,18 @@ export class TestExplorer {
             if (isPathInsidePath(uri.fsPath, folder.folder.fsPath)) {
                 const target = folder.swiftPackage.getTarget(uri.fsPath);
                 if (target && target.type === "test") {
-                    testExplorer.lspTestDiscovery
-                        .getDocumentTests(folder.swiftPackage, uri)
-                        .then(
-                            tests =>
-                                [
-                                    {
-                                        id: target.name,
-                                        label: target.name,
-                                        children: tests,
-                                        location: undefined,
-                                        disabled: false,
-                                        style: "test-target",
-                                        tags: [],
-                                    },
-                                ] as TestDiscovery.TestClass[]
-                        )
-                        // Fallback to parsing document symbols for XCTests only
-                        .catch(() => parseTestsFromDocumentSymbols(target.name, symbols, uri))
-                        .then(tests => {
-                            TestDiscovery.updateTests(testExplorer.controller, tests, uri);
-                        });
+                    const tests = testExplorer.lspTestDiscovery.getTests(symbols, uri);
+                    TestDiscovery.updateTests(
+                        testExplorer.controller,
+                        [
+                            {
+                                name: target.name,
+                                folder: vscode.Uri.file(target.path),
+                                classes: tests,
+                            },
+                        ],
+                        uri
+                    );
                 }
             }
         }
@@ -179,17 +168,16 @@ export class TestExplorer {
      * Discover tests
      */
     async discoverTestsInWorkspace() {
-        try {
-            // If the LSP cannot produce a list of tests it throws and
-            // we fall back to discovering tests with SPM.
-            await this.discoverTestsInWorkspaceLSP();
-        } catch {
-            this.folderContext.workspaceContext.outputChannel.logDiagnostic(
-                "workspace/tests LSP request not supported, falling back to SPM to discover tests.",
-                "Test Discovery"
-            );
-            await this.discoverTestsInWorkspaceSPM();
-        }
+        //const toolchain = this.folderContext.workspaceContext.toolchain;
+        //if (toolchain.swiftVersion.isLessThan(new Version(5, 11, 0))) {
+        await this.discoverTestsInWorkspaceSPM();
+        /*} else {
+            try {
+                await this.discoverTestsInWorkspaceLSP();
+            } catch {
+                await this.discoverTestsInWorkspaceSPM();
+            }
+        }*/
     }
 
     /**
@@ -197,96 +185,97 @@ export class TestExplorer {
      * Uses `swift test --list-tests` to get the list of tests
      */
     async discoverTestsInWorkspaceSPM() {
-        async function runDiscover(explorer: TestExplorer, firstTry: boolean) {
-            try {
-                const toolchain = explorer.folderContext.workspaceContext.toolchain;
-                // get build options before build is run so we can be sure they aren't changed
-                // mid-build
-                const testBuildOptions = buildOptions(toolchain);
-                // normally we wouldn't run the build here, but you can hang swiftPM on macOS
-                // if you try and list tests while skipping the build if you are using a different
-                // sanitizer settings
-                if (process.platform === "darwin" && configuration.sanitizer !== "off") {
-                    const task = await getBuildAllTask(explorer.folderContext);
-                    task.definition.dontTriggerTestDiscovery = true;
-                    const exitCode = await explorer.folderContext.taskQueue.queueOperation(
-                        new TaskOperation(task)
-                    );
-                    if (exitCode === undefined || exitCode !== 0) {
-                        explorer.setErrorTestItem("Build the project to enable test discovery.");
-                        return;
-                    }
-                }
-                // get list of tests from `swift test --list-tests`
-                let listTestArguments: string[];
-                if (toolchain.swiftVersion.isGreaterThanOrEqual(new Version(5, 8, 0))) {
-                    listTestArguments = ["test", "list", "--skip-build"];
-                } else {
-                    listTestArguments = ["test", "--list-tests", "--skip-build"];
-                }
-                listTestArguments = [...listTestArguments, ...testBuildOptions];
-                const listTestsOperation = new SwiftExecOperation(
-                    listTestArguments,
-                    explorer.folderContext,
-                    "Listing Tests",
-                    { showStatusItem: true, checkAlreadyRunning: false, log: "Listing tests" },
-                    stdout => {
-                        // if we got to this point we can get rid of any error test item
-                        explorer.deleteErrorTestItem();
-
-                        const tests = parseTestsFromSwiftTestListOutput(stdout);
-                        TestDiscovery.updateTests(explorer.controller, tests);
-                    }
+        try {
+            const toolchain = this.folderContext.workspaceContext.toolchain;
+            // get build options before build is run so we can be sure they aren't changed
+            // mid-build
+            const testBuildOptions = buildOptions(toolchain);
+            // normally we wouldn't run the build here, but you can hang swiftPM on macOS
+            // if you try and list tests while skipping the build if you are using a different
+            // sanitizer settings
+            if (process.platform === "darwin" && configuration.sanitizer !== "off") {
+                const task = await getBuildAllTask(this.folderContext);
+                task.definition.dontTriggerTestDiscovery = true;
+                const exitCode = await this.folderContext.taskQueue.queueOperation(
+                    new TaskOperation(task)
                 );
-                await explorer.folderContext.taskQueue.queueOperation(listTestsOperation);
-            } catch (error) {
-                // If a test list fails its possible the tests have not been built.
-                // Build them and try again, and if we still fail then notify the user.
-                if (firstTry) {
-                    await new Promise<string>(resolve => {
-                        const swiftBuildOperation = new SwiftExecOperation(
-                            ["build", "--build-tests"],
-                            explorer.folderContext,
-                            "Building",
-                            {
-                                showStatusItem: true,
-                                checkAlreadyRunning: true,
-                                log: "Performing initial build",
-                            },
-                            resolve
-                        );
-                        explorer.folderContext.taskQueue.queueOperation(swiftBuildOperation);
-                    });
-
-                    // Retry test discovery after performing a build.
-                    await runDiscover(explorer, false);
-                } else {
-                    const errorDescription = getErrorDescription(error);
-                    if (
-                        (process.platform === "darwin" &&
-                            errorDescription.match(/error: unableToLoadBundle/)) ||
-                        (process.platform === "win32" &&
-                            errorDescription.match(/The file doesn’t exist./)) ||
-                        (!["darwin", "win32"].includes(process.platform) &&
-                            errorDescription.match(/No such file or directory/))
-                    ) {
-                        explorer.setErrorTestItem("Build the project to enable test discovery.");
-                    } else if (errorDescription.startsWith("error: no tests found")) {
-                        explorer.setErrorTestItem(
-                            "Add a test target to your Package.",
-                            "No Tests Found."
-                        );
-                    } else {
-                        explorer.setErrorTestItem(errorDescription);
-                    }
-                    explorer.folderContext.workspaceContext.outputChannel.log(
-                        `Test Discovery Failed: ${errorDescription}`,
-                        explorer.folderContext.name
-                    );
+                if (exitCode === undefined || exitCode !== 0) {
+                    this.setErrorTestItem("Build the project to enable test discovery.");
+                    return;
                 }
             }
+            // get list of tests from `swift test --list-tests`
+            let listTestArguments: string[];
+            if (toolchain.swiftVersion.isGreaterThanOrEqual(new Version(5, 8, 0))) {
+                listTestArguments = ["test", "list", "--skip-build"];
+            } else {
+                listTestArguments = ["test", "--list-tests", "--skip-build"];
+            }
+            listTestArguments = [...listTestArguments, ...testBuildOptions];
+            const listTestsOperation = new SwiftExecOperation(
+                listTestArguments,
+                this.folderContext,
+                "Listing Tests",
+                { showStatusItem: true, checkAlreadyRunning: false, log: "Listing tests" },
+                stdout => {
+                    // if we got to this point we can get rid of any error test item
+                    this.deleteErrorTestItem();
+
+                    const lines = stdout.match(/[^\r\n]+/g);
+                    if (!lines) {
+                        return;
+                    }
+
+                    // Build target array from test list output by `swift test list`
+                    const targets = new Array<TestDiscovery.TestTarget>();
+                    for (const line of lines) {
+                        // Regex "<testTarget>.<class>/<function>"
+                        const groups = /^([\w\d_]*)\.([\w\d_]*)\/(.*)$/.exec(line);
+                        if (!groups) {
+                            continue;
+                        }
+                        const targetName = groups[1];
+                        const className = groups[2];
+                        const funcName = groups[3];
+                        let target = targets.find(item => item.name === targetName);
+                        if (!target) {
+                            target = { name: targetName, folder: undefined, classes: [] };
+                            targets.push(target);
+                        }
+                        let testClass = target.classes.find(item => item.name === className);
+                        if (!testClass) {
+                            testClass = { name: className, location: undefined, functions: [] };
+                            target.classes.push(testClass);
+                        }
+                        const testFunc = { name: funcName, location: undefined };
+                        testClass.functions.push(testFunc);
+                    }
+                    // Update tests from target array
+                    TestDiscovery.updateTests(this.controller, targets);
+                }
+            );
+            await this.folderContext.taskQueue.queueOperation(listTestsOperation);
+        } catch (error) {
+            const errorDescription = getErrorDescription(error);
+            if (
+                (process.platform === "darwin" &&
+                    errorDescription.match(/error: unableToLoadBundle/)) ||
+                (process.platform === "win32" &&
+                    errorDescription.match(/The file doesn’t exist./)) ||
+                (!["darwin", "win32"].includes(process.platform) &&
+                    errorDescription.match(/No such file or directory/))
+            ) {
+                this.setErrorTestItem("Build the project to enable test discovery.");
+            } else if (errorDescription.startsWith("error: no tests found")) {
+                this.setErrorTestItem("Add a test target to your Package.", "No Tests Found.");
+            } else {
+                this.setErrorTestItem(errorDescription);
+            }
+            this.folderContext.workspaceContext.outputChannel.log(
+                `Test Discovery Failed: ${errorDescription}`,
+                this.folderContext.name
+            );
         }
-        await runDiscover(this, true);
     }
 
     /**
@@ -294,7 +283,7 @@ export class TestExplorer {
      */
     async discoverTestsInWorkspaceLSP() {
         const tests = await this.lspTestDiscovery.getWorkspaceTests(
-            this.folderContext.swiftPackage
+            this.folderContext.workspaceFolder.uri
         );
         TestDiscovery.updateTestsFromClasses(this.folderContext, tests);
     }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the VSCode Swift open source project
 //
-// Copyright (c) 2021-2024 the VSCode Swift project authors
+// Copyright (c) 2021 the VSCode Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import * as ls from "vscode-languageserver-protocol";
 import * as langclient from "vscode-languageclient/node";
 
 // Definitions for non-standard requests used by sourcekit-lsp
@@ -63,75 +62,11 @@ export const legacyInlayHintsRequest = new langclient.RequestType<
     unknown
 >("sourcekit-lsp/inlayHints");
 
-// Test styles where test-target represents a test target that contains tests
-export type TestStyle = "XCTest" | "swift-testing" | "test-target";
-
 // Listing tests
-export interface LSPTestItem {
-    /**
-     * This identifier uniquely identifies the test case or test suite. It can be used to run an individual test (suite).
-     */
-    id: string;
-
-    /**
-     * Display name describing the test.
-     */
-    label: string;
-
-    /**
-     * Optional description that appears next to the label.
-     */
-    description?: string;
-
-    /**
-     * A string that should be used when comparing this item with other items.
-     *
-     * When `undefined` the `label` is used.
-     */
-    sortText?: string;
-
-    /**
-     *  Whether the test is disabled.
-     */
-    disabled: boolean;
-
-    /**
-     * The type of test, eg. the testing framework that was used to declare the test.
-     */
-    style: TestStyle;
-
-    /**
-     * The location of the test item in the source code.
-     */
-    location: ls.Location;
-
-    /**
-     * The children of this test item.
-     *
-     * For a test suite, this may contain the individual test cases or nested suites.
-     */
-    children: [LSPTestItem];
-
-    /**
-     * Tags associated with this test item.
-     */
-    tags: { id: string }[];
-}
+//export interface WorkspaceTestsParams {}
 
 export const workspaceTestsRequest = new langclient.RequestType<
     Record<string, never>,
-    LSPTestItem[],
+    langclient.SymbolInformation[],
     unknown
 >("workspace/tests");
-
-interface DocumentTestsParams {
-    textDocument: {
-        uri: ls.URI;
-    };
-}
-
-export const textDocumentTestsRequest = new langclient.RequestType<
-    DocumentTestsParams,
-    LSPTestItem[],
-    unknown
->("textDocument/tests");

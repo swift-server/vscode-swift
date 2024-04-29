@@ -18,7 +18,7 @@ import {
     iTestRunState,
     nonDarwinTestRegex,
     TestOutputParser,
-} from "../../../src/TestExplorer/TestOutputParser";
+} from "../../src/TestExplorer/TestOutputParser";
 
 /** TestStatus */
 export enum TestStatus {

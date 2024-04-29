@@ -2,7 +2,7 @@
 //
 // This source file is part of the VSCode Swift open source project
 //
-// Copyright (c) 2021-2024 the VSCode Swift project authors
+// Copyright (c) 2021-2023 the VSCode Swift project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -95,7 +95,6 @@ export class LanguageClientManager {
      * null means in the process of restarting
      */
     private languageClient: langclient.LanguageClient | null | undefined;
-    private initializeResult?: langclient.InitializeResult;
     private cancellationToken?: vscode.CancellationTokenSource;
     private legacyInlayHints?: vscode.Disposable;
     private restartedPromise?: Promise<void>;
@@ -510,7 +509,6 @@ export class LanguageClientManager {
                 if (this.workspaceContext.swiftVersion.isLessThan(new Version(5, 7, 0))) {
                     this.legacyInlayHints = activateLegacyInlayHints(client);
                 }
-                this.initializeResult = client.initializeResult;
             })
             .catch(reason => {
                 this.workspaceContext.outputChannel.log(`${reason}`);
