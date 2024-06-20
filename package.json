@@ -698,6 +698,10 @@
           "when": "view == packageDependencies && viewItem == remote"
         },
         {
+          "command": "swift.editDependency",
+          "when": "view == packageDependencies && viewItem == remote"
+        },
+        {
           "command": "swift.uneditDependency",
           "when": "view == packageDependencies && viewItem == editing"
         },
