@@ -27,6 +27,7 @@ import { DiagnosticsManager } from "../DiagnosticsManager";
 import { LSPLogger, LSPOutputChannel } from "./LSPOutputChannel";
 import { SwiftOutputChannel } from "../ui/SwiftOutputChannel";
 import { promptForDiagnostics } from "../commands/captureDiagnostics";
+import { PeekMacroParams, PeekMacroRequest } from "./lspExtensions";
 
 interface SourceKitLogMessageParams extends langclient.LogMessageParams {
     logName?: string;
@@ -615,6 +616,37 @@ export class LanguageClientManager {
 
         this.languageClient = client;
         this.cancellationToken = new vscode.CancellationTokenSource();
+
+        this.languageClient.onRequest(PeekMacroRequest.method, async (params: PeekMacroParams) => {
+            const locations = params.macroExpansion.expansionURIs.map(uri => {
+                const location = new vscode.Location(
+                    vscode.Uri.from({
+                        scheme: "file",
+                        path: new URL(uri).pathname,
+                    }),
+                    new vscode.Position(0, 0)
+                );
+
+                return location;
+            });
+
+            console.log(params.peekLocation);
+
+            const peekPosition = new vscode.Position(
+                params.peekLocation.line,
+                params.peekLocation.character
+            );
+
+            await vscode.commands.executeCommand(
+                "editor.action.peekLocations",
+                vscode.window.activeTextEditor?.document.uri,
+                peekPosition,
+                locations,
+                "peek"
+            );
+
+            return { success: true };
+        });
 
         return this.clientReadyPromise;
     }

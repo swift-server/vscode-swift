@@ -14,8 +14,29 @@
 
 import * as ls from "vscode-languageserver-protocol";
 import * as langclient from "vscode-languageclient/node";
+import { Position, Uri } from "vscode";
 
 // Definitions for non-standard requests used by sourcekit-lsp
+
+export interface PeekMacroParams {
+    macroExpansion: MacroExpansion;
+    peekLocation: Position;
+}
+
+interface MacroExpansion {
+    expansionURIs: Uri[];
+}
+
+export interface PeekMacroResult {
+    success: boolean;
+    failureReason?: string;
+}
+
+export const PeekMacroRequest = new langclient.RequestType<
+    PeekMacroParams,
+    PeekMacroResult,
+    unknown
+>("sourcekit-lsp/peekMacro");
 
 // Inlay Hints (pre Swift 5.6)
 export interface LegacyInlayHintsParams {
