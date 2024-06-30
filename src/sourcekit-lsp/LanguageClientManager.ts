@@ -560,6 +560,9 @@ export class LanguageClientManager {
                 })(),
             },
             errorHandler: new SourceKitLSPErrorHandler(5),
+            initializationOptions: {
+                peekDocuments: true,
+            },
         };
 
         return new langclient.LanguageClient(
