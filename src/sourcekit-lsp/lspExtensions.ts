@@ -18,25 +18,22 @@ import { Position, Uri } from "vscode";
 
 // Definitions for non-standard requests used by sourcekit-lsp
 
-export interface PeekMacroParams {
-    macroExpansion: MacroExpansion;
-    peekLocation: Position;
+export interface PeekDocumentsParams {
+    uri?: Uri;
+    position?: Position;
+    locations: Uri[];
+    multiple: string;
 }
 
-interface MacroExpansion {
-    expansionURIs: Uri[];
-}
-
-export interface PeekMacroResult {
+export interface PeekDocumentsResult {
     success: boolean;
-    failureReason?: string;
 }
 
-export const PeekMacroRequest = new langclient.RequestType<
-    PeekMacroParams,
-    PeekMacroResult,
+export const PeekDocumentsRequest = new langclient.RequestType<
+    PeekDocumentsParams,
+    PeekDocumentsResult,
     unknown
->("sourcekit-lsp/peekMacro");
+>("sourcekit-lsp/peekDocuments");
 
 // Inlay Hints (pre Swift 5.6)
 export interface LegacyInlayHintsParams {
