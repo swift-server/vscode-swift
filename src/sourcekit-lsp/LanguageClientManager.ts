@@ -561,7 +561,7 @@ export class LanguageClientManager {
             },
             errorHandler: new SourceKitLSPErrorHandler(5),
             initializationOptions: {
-                peekDocuments: true,
+                peekDocuments: true, // client capability to handle `PeekDocumentsRequest`
             },
         };
 
