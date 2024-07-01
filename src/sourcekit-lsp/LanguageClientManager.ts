@@ -561,7 +561,7 @@ export class LanguageClientManager {
             },
             errorHandler: new SourceKitLSPErrorHandler(5),
             initializationOptions: {
-                peekDocuments: true, // client capability to handle `PeekDocumentsRequest`
+                peekDocuments: true, // workaround for client capability to handle `PeekDocumentsRequest`
             },
         };
 
@@ -637,10 +637,13 @@ export class LanguageClientManager {
 
                 await vscode.commands.executeCommand(
                     "editor.action.peekLocations",
-                    params.uri ?? vscode.window.activeTextEditor?.document.uri,
-                    params.position ?? vscode.window.activeTextEditor?.selection.active,
+                    vscode.Uri.from({
+                        scheme: "file",
+                        path: new URL(params.uri).pathname,
+                    }),
+                    new vscode.Position(params.position.line, params.position.character),
                     locations,
-                    params.multiple
+                    "peek"
                 );
 
                 return { success: true };
