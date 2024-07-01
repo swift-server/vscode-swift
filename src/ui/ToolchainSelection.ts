@@ -197,7 +197,7 @@ async function getQuickPickItems(
     if (process.platform === "linux") {
         actionItems.push({
             type: "action",
-            label: "$(cloud-download) Install Swiftly for toolchain management...",
+            label: "$(swift-icon) Install Swiftly for toolchain management...",
             detail: "Install https://swiftlang.github.io/swiftly to manage your toolchains on Linux",
             run: installSwiftly,
         });

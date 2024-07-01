@@ -30,6 +30,23 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "icons": {
+      "swift-icon": {
+        "description": "The official icon for the Swift programming language",
+        "default": {
+          "fontPath": "assets/icon-font.woff",
+          "fontCharacter": "\\E001"
+        }
+      }
+    },
+    "terminal": {
+      "profiles": [
+        {
+          "title": "Swift",
+          "id": "swift.terminalProfile"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "swift",
@@ -320,6 +337,12 @@
             "description": "Controls whether or not the extension will warn about being unable to create symlinks. (Windows only)",
             "scope": "application",
             "order": 14
+          },
+          "swift.enableTerminalEnvironment": {
+            "type": "boolean",
+            "default": true,
+            "description": "Controls whether or not the extension will contribute Swift environment variables to the integrated terminal.",
+            "order": 15
           }
         }
       },

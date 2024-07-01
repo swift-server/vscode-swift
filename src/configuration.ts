@@ -283,6 +283,12 @@ const configuration = {
             .getConfiguration("swift")
             .update("warnAboutSymlinkCreation", value, vscode.ConfigurationTarget.Global);
     },
+    /** Whether or not the extension will contribute Swift environment variables to the integrated terminal */
+    get enableTerminalEnvironment(): boolean {
+        return vscode.workspace
+            .getConfiguration("swift")
+            .get<boolean>("enableTerminalEnvironment", true);
+    },
 };
 
 export default configuration;

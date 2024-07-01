@@ -35,6 +35,7 @@ import { SwiftToolchain } from "./toolchain/toolchain";
 import { SwiftOutputChannel } from "./ui/SwiftOutputChannel";
 import { showReloadExtensionNotification } from "./ui/ReloadExtension";
 import { checkAndWarnAboutWindowsSymlinks } from "./ui/win32";
+import { SwiftEnvironmentVariablesManager, SwiftTerminalProfileProvider } from "./terminal";
 
 /**
  * External API as exposed by the extension. Can be queried by other extensions
@@ -53,6 +54,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Api | 
         const outputChannel = new SwiftOutputChannel("Swift");
 
         checkAndWarnAboutWindowsSymlinks(outputChannel);
+
+        context.subscriptions.push(new SwiftEnvironmentVariablesManager(context));
+        context.subscriptions.push(
+            vscode.window.registerTerminalProfileProvider(
+                "swift.terminalProfile",
+                new SwiftTerminalProfileProvider()
+            )
+        );
 
         const toolchain: SwiftToolchain | undefined = await SwiftToolchain.create()
             .then(toolchain => {
@@ -96,6 +105,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Api | 
             showToolchainError();
             return;
         }
+
         const workspaceContext = await WorkspaceContext.create(outputChannel, toolchain);
         context.subscriptions.push(...commands.register(workspaceContext));
 
