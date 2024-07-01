@@ -53,9 +53,10 @@ The extension adds commands, available via the command palette.
 - **Run Swift Snippet**: If the currently open file is a Swift snippet then run it.
 - **Debug Swift Snippet**: If the currently open file is a Swift snippet then debug it.
 - **Run Command Plugin**: Display menu of command plugins for currently loaded packages.
+- **Select Toolchain**: Select which locally installed Swift toolchain (including Xcode toolchains on macOS) you want to use Swift tools from.
+
 
 The following command is only available on macOS
-- **Select Xcode Developer Dir**: Select the version of Xcode you want to use swift tools from.
 - **Select Target Platform**: This is an experimental command used to get code completion for iOS, tvOS projects
 
 ### Package dependencies
