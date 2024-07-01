@@ -14,8 +14,47 @@
 
 import * as ls from "vscode-languageserver-protocol";
 import * as langclient from "vscode-languageclient/node";
+import * as vscode from "vscode";
 
 // Definitions for non-standard requests used by sourcekit-lsp
+
+// Peek Documents
+export interface PeekDocumentsParams {
+    /**
+     * The `DocumentUri` of the text document in which to show the "peeked" editor
+     */
+    uri: langclient.DocumentUri;
+
+    /**
+     * The `Position` in the given text document in which to show the "peeked editor"
+     */
+    position: vscode.Position;
+
+    /**
+     * An array `DocumentUri` of the documents to appear inside the "peeked" editor
+     */
+    locations: langclient.DocumentUri[];
+}
+
+/**
+ * Response to indicate the `success` of the `PeekDocumentsRequest`
+ */
+export interface PeekDocumentsResult {
+    success: boolean;
+}
+
+/**
+ * Request from the server to the client to show the given documents in a "peeked" editor.
+ *
+ * This request is handled by the client to show the given documents in a "peeked" editor (i.e. inline with / inside the editor canvas).
+ *
+ * It requires the experimental client capability `"peekDocuments"` to use.
+ */
+export const PeekDocumentsRequest = new langclient.RequestType<
+    PeekDocumentsParams,
+    PeekDocumentsResult,
+    unknown
+>("workspace/peekDocuments");
 
 // Inlay Hints (pre Swift 5.6)
 export interface LegacyInlayHintsParams {

@@ -27,6 +27,7 @@ import { DiagnosticsManager } from "../DiagnosticsManager";
 import { LSPLogger, LSPOutputChannel } from "./LSPOutputChannel";
 import { SwiftOutputChannel } from "../ui/SwiftOutputChannel";
 import { promptForDiagnostics } from "../commands/captureDiagnostics";
+import { PeekDocumentsParams, PeekDocumentsRequest } from "./lspExtensions";
 
 interface SourceKitLogMessageParams extends langclient.LogMessageParams {
     logName?: string;
@@ -559,6 +560,9 @@ export class LanguageClientManager {
                 })(),
             },
             errorHandler: new SourceKitLSPErrorHandler(5),
+            initializationOptions: {
+                peekDocuments: true, // workaround for client capability to handle `PeekDocumentsRequest`
+            },
         };
 
         return new langclient.LanguageClient(
@@ -615,6 +619,36 @@ export class LanguageClientManager {
 
         this.languageClient = client;
         this.cancellationToken = new vscode.CancellationTokenSource();
+
+        this.languageClient.onRequest(
+            PeekDocumentsRequest.method,
+            async (params: PeekDocumentsParams) => {
+                const locations = params.locations.map(uri => {
+                    const location = new vscode.Location(
+                        vscode.Uri.from({
+                            scheme: "file",
+                            path: new URL(uri).pathname,
+                        }),
+                        new vscode.Position(0, 0)
+                    );
+
+                    return location;
+                });
+
+                await vscode.commands.executeCommand(
+                    "editor.action.peekLocations",
+                    vscode.Uri.from({
+                        scheme: "file",
+                        path: new URL(params.uri).pathname,
+                    }),
+                    new vscode.Position(params.position.line, params.position.character),
+                    locations,
+                    "peek"
+                );
+
+                return { success: true };
+            }
+        );
 
         return this.clientReadyPromise;
     }
