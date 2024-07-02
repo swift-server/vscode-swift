@@ -63,7 +63,7 @@ export async function selectToolchainFolder() {
     if (!selected || selected.length !== 1) {
         return;
     }
-    await setToolchainPath(selected[0].fsPath, "prompt");
+    await setToolchainPath(selected[0].fsPath, "public");
 }
 
 /**
@@ -91,12 +91,26 @@ export async function showToolchainError(): Promise<void> {
     }
 }
 
-/** A {@link vscode.QuickPickItem} that contains the path to an installed swift toolchain */
-interface SwiftToolchainItem extends vscode.QuickPickItem {
+/** A {@link vscode.QuickPickItem} that contains the path to an installed Swift toolchain */
+type SwiftToolchainItem = PublicSwiftToolchainItem | XcodeToolchainItem;
+
+/** Common properties for a {@link vscode.QuickPickItem} that represents a Swift toolchain */
+interface BaseSwiftToolchainItem extends vscode.QuickPickItem {
     type: "toolchain";
     toolchainPath: string;
     swiftFolderPath: string;
     onDidSelect?(): Promise<void>;
+}
+
+/** A {@link vscode.QuickPickItem} for a Swift toolchain that has been installed manually */
+interface PublicSwiftToolchainItem extends BaseSwiftToolchainItem {
+    category: "public" | "swiftly";
+}
+
+/** A {@link vscode.QuickPickItem} for a Swift toolchain provided by an installed Xcode application */
+interface XcodeToolchainItem extends BaseSwiftToolchainItem {
+    category: "xcode";
+    xcodePath: string;
 }
 
 /** A {@link vscode.QuickPickItem} that performs an action for the user */
@@ -128,6 +142,7 @@ type SelectToolchainItem = SwiftToolchainItem | ActionItem | SeparatorItem;
 async function getQuickPickItems(
     activeToolchain: SwiftToolchain | undefined
 ): Promise<SelectToolchainItem[]> {
+    // Find any Xcode installations on the system
     const xcodes = (await SwiftToolchain.getXcodeInstalls())
         .reverse()
         .map<SwiftToolchainItem>(xcodePath => {
@@ -141,17 +156,21 @@ async function getQuickPickItems(
             );
             return {
                 type: "toolchain",
+                category: "xcode",
                 label: path.basename(xcodePath, ".app"),
                 detail: xcodePath,
+                xcodePath,
                 toolchainPath,
                 swiftFolderPath: path.join(toolchainPath, "bin"),
             };
         });
+    // Find any public Swift toolchains on the system
     const toolchains = (await SwiftToolchain.getToolchainInstalls())
         .reverse()
         .map<SwiftToolchainItem>(toolchainPath => {
             const result: SwiftToolchainItem = {
                 type: "toolchain",
+                category: "public",
                 label: path.basename(toolchainPath, ".xctoolchain"),
                 detail: toolchainPath,
                 toolchainPath: path.join(toolchainPath, "usr"),
@@ -167,15 +186,18 @@ async function getQuickPickItems(
             }
             return result;
         });
+    // Find any Swift toolchains installed via Swiftly
     const swiftlyToolchains = (await SwiftToolchain.getSwiftlyToolchainInstalls())
         .reverse()
         .map<SwiftToolchainItem>(toolchainPath => ({
             type: "toolchain",
+            category: "swiftly",
             label: path.basename(toolchainPath),
             detail: toolchainPath,
             toolchainPath: path.join(toolchainPath, "usr"),
             swiftFolderPath: path.join(toolchainPath, "usr", "bin"),
         }));
+    // Mark which toolchain is being actively used
     if (activeToolchain) {
         const toolchainInUse = [...xcodes, ...toolchains, ...swiftlyToolchains].find(toolchain => {
             return toolchain.toolchainPath === activeToolchain.toolchainPath;
@@ -185,6 +207,7 @@ async function getQuickPickItems(
         } else {
             toolchains.splice(0, 0, {
                 type: "toolchain",
+                category: "public",
                 label: `Swift ${activeToolchain.swiftVersion.toString()}`,
                 description: "$(check) in use",
                 detail: activeToolchain.toolchainPath,
@@ -193,6 +216,7 @@ async function getQuickPickItems(
             });
         }
     }
+    // Various actions that the user can perform (e.g. to install new toolchains)
     const actionItems: ActionItem[] = [];
     if (process.platform === "linux") {
         actionItems.push({
@@ -232,8 +256,14 @@ async function getQuickPickItems(
  * @param activeToolchain the {@link WorkspaceContext}
  */
 export async function showToolchainSelectionQuickPick(activeToolchain: SwiftToolchain | undefined) {
+    let xcodePaths: string[] = [];
     const selected = await vscode.window.showQuickPick<SelectToolchainItem>(
-        getQuickPickItems(activeToolchain),
+        getQuickPickItems(activeToolchain).then(result => {
+            xcodePaths = result
+                .filter((i): i is XcodeToolchainItem => "category" in i && i.category === "xcode")
+                .map(xcode => xcode.xcodePath);
+            return result;
+        }),
         {
             title: "Select the Swift toolchain",
             placeHolder: "Pick a Swift toolchain that VS Code will use",
@@ -241,13 +271,70 @@ export async function showToolchainSelectionQuickPick(activeToolchain: SwiftTool
         }
     );
     if (selected?.type === "action") {
-        await selected.run();
-    } else if (selected?.type === "toolchain") {
-        const isUpdated = await setToolchainPath(selected.swiftFolderPath, "prompt");
+        return await selected.run();
+    }
+    if (selected?.type === "toolchain") {
+        // Select an Xcode to build with
+        let developerDir: string | undefined;
+        if (selected.category === "xcode") {
+            developerDir = selected.xcodePath;
+        } else if (xcodePaths.length === 1) {
+            developerDir = xcodePaths[0];
+        } else if (process.platform === "darwin" && xcodePaths.length > 1) {
+            developerDir = await showDeveloperDirQuickPick(xcodePaths);
+            if (!developerDir) {
+                return;
+            }
+        }
+        // Update the toolchain path
+        const isUpdated = await setToolchainPath(selected.swiftFolderPath, developerDir);
         if (isUpdated && selected.onDidSelect) {
             await selected.onDidSelect();
         }
+        return;
     }
+}
+
+/**
+ * Prompt the user to choose a value for the DEVELOPER_DIR environment variable.
+ *
+ * @param xcodePaths An array of paths to available Xcode installations on the system
+ * @returns The selected DEVELOPER_DIR or undefined if the user cancelled selection
+ */
+async function showDeveloperDirQuickPick(xcodePaths: string[]): Promise<string | undefined> {
+    const selected = await vscode.window.showQuickPick<vscode.QuickPickItem>(
+        SwiftToolchain.getXcodeDeveloperDir(configuration.swiftEnvironmentVariables).then(
+            existingDeveloperDir => {
+                return xcodePaths
+                    .map(xcodePath => {
+                        const result: vscode.QuickPickItem = {
+                            label: path.basename(xcodePath, ".app"),
+                            detail: xcodePath,
+                        };
+                        if (existingDeveloperDir.startsWith(xcodePath)) {
+                            result.description = "$(check) in use";
+                        }
+                        return result;
+                    })
+                    .sort((a, b) => {
+                        // Bring the active Xcode to the top
+                        if (existingDeveloperDir.startsWith(a.detail ?? "")) {
+                            return -1;
+                        } else if (existingDeveloperDir.startsWith(b.detail ?? "")) {
+                            return 1;
+                        }
+                        // Otherwise sort by name
+                        return a.label.localeCompare(b.label);
+                    });
+            }
+        ),
+        {
+            title: "Select a developer directory",
+            placeHolder: "Pick an Xcode installation to use as the developer directory",
+            canPickMany: false,
+        }
+    );
+    return selected?.detail;
 }
 
 /**
@@ -255,46 +342,84 @@ export async function showToolchainSelectionQuickPick(activeToolchain: SwiftTool
  */
 async function removeToolchainPath() {
     const swiftSettings = vscode.workspace.getConfiguration("swift");
+    const swiftEnvironmentSettings = swiftSettings.inspect("swiftEnvironmentVariables");
+    if (swiftEnvironmentSettings?.globalValue) {
+        await swiftSettings.update(
+            "swiftEnvironmentVariables",
+            {
+                ...swiftEnvironmentSettings?.globalValue,
+                DEVELOPER_DIR: undefined,
+            },
+            vscode.ConfigurationTarget.Global
+        );
+    }
     await swiftSettings.update("path", undefined, vscode.ConfigurationTarget.Global);
+    if (swiftEnvironmentSettings?.workspaceValue) {
+        await swiftSettings.update(
+            "swiftEnvironmentVariables",
+            {
+                ...swiftEnvironmentSettings?.workspaceValue,
+                DEVELOPER_DIR: undefined,
+            },
+            vscode.ConfigurationTarget.Workspace
+        );
+    }
     await swiftSettings.update("path", undefined, vscode.ConfigurationTarget.Workspace);
 }
 
+/**
+ * Update the toolchain path
+ * @param swiftFolderPath
+ * @param developerDir
+ * @returns
+ */
 async function setToolchainPath(
-    value: string | undefined,
-    target?: vscode.ConfigurationTarget | "prompt"
+    swiftFolderPath: string | undefined,
+    developerDir: string | undefined
 ): Promise<boolean> {
-    if (target === "prompt") {
-        const items: (vscode.QuickPickItem & {
-            target?: vscode.ConfigurationTarget;
-        })[] = [];
-        if (vscode.workspace.workspaceFolders) {
-            items.push({
-                label: "Workspace Configuration",
-                description: "(Recommended)",
-                detail: "Add to VS Code workspace configuration",
-                target: vscode.ConfigurationTarget.Workspace,
-            });
-        }
+    let target: vscode.ConfigurationTarget | undefined;
+    const items: (vscode.QuickPickItem & {
+        target?: vscode.ConfigurationTarget;
+    })[] = [];
+    if (vscode.workspace.workspaceFolders) {
         items.push({
-            label: "User Configuration",
-            detail: "Add to VS Code user configuration.",
-            target: vscode.ConfigurationTarget.Global,
+            label: "Workspace Configuration",
+            description: "(Recommended)",
+            detail: "Add to VS Code workspace configuration",
+            target: vscode.ConfigurationTarget.Workspace,
         });
-        if (items.length > 1) {
-            const selected = await vscode.window.showQuickPick(items, {
-                title: "Toolchain Configuration",
-                placeHolder: "Select a location to update the toolchain selection",
-                canPickMany: false,
-            });
-            if (!selected) {
-                return false;
-            }
-            target = selected.target;
-        } else {
-            target = vscode.ConfigurationTarget.Global; // Global scope by default
-        }
     }
-    await vscode.workspace.getConfiguration("swift").update("path", value, target);
+    items.push({
+        label: "User Configuration",
+        detail: "Add to VS Code user configuration.",
+        target: vscode.ConfigurationTarget.Global,
+    });
+    if (items.length > 1) {
+        const selected = await vscode.window.showQuickPick(items, {
+            title: "Toolchain Configuration",
+            placeHolder: "Select a location to update the toolchain selection",
+            canPickMany: false,
+        });
+        if (!selected) {
+            return false;
+        }
+        target = selected.target;
+    } else {
+        target = vscode.ConfigurationTarget.Global; // Global scope by default
+    }
+    const swiftConfiguration = vscode.workspace.getConfiguration("swift");
+    await swiftConfiguration.update("path", swiftFolderPath, target);
+    if (developerDir) {
+        const swiftEnv = configuration.swiftEnvironmentVariables;
+        await swiftConfiguration.update(
+            "swiftEnvironmentVariables",
+            {
+                ...swiftEnv,
+                DEVELOPER_DIR: developerDir,
+            },
+            target
+        );
+    }
     await checkAndRemoveWorkspaceSetting(target);
     return true;
 }
@@ -307,15 +432,25 @@ async function checkAndRemoveWorkspaceSetting(target: vscode.ConfigurationTarget
     const inspect = vscode.workspace.getConfiguration("swift").inspect<string>("path");
     if (inspect?.workspaceValue) {
         const confirmation = await vscode.window.showWarningMessage(
-            "You already have the Swift path configured in Workspace Settings which takes precedence over User Settings." +
+            "You already have a Swift path configured in Workspace Settings which takes precedence over User Settings." +
                 " Would you like to remove the setting from your workspace and use the User Settings instead?",
             "Remove Workspace Setting"
         );
         if (confirmation !== "Remove Workspace Setting") {
             return;
         }
-        await vscode.workspace
-            .getConfiguration("swift")
-            .update("path", undefined, vscode.ConfigurationTarget.Workspace);
+        const swiftSettings = vscode.workspace.getConfiguration("swift");
+        const swiftEnvironmentSettings = swiftSettings.inspect("swiftEnvironmentVariables");
+        if (swiftEnvironmentSettings?.workspaceValue) {
+            await swiftSettings.update(
+                "swiftEnvironmentVariables",
+                {
+                    ...swiftEnvironmentSettings?.workspaceValue,
+                    DEVELOPER_DIR: undefined,
+                },
+                vscode.ConfigurationTarget.Workspace
+            );
+        }
+        await swiftSettings.update("path", undefined, vscode.ConfigurationTarget.Workspace);
     }
 }

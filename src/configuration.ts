@@ -198,9 +198,6 @@ const configuration = {
             .getConfiguration("swift")
             .get<{ [key: string]: string }>("swiftEnvironmentVariables", {});
     },
-    set swiftEnvironmentVariables(vars: { [key: string]: string }) {
-        vscode.workspace.getConfiguration("swift").update("swiftEnvironmentVariables", vars);
-    },
     /** include build errors in problems view */
     get diagnosticsCollection(): DiagnosticCollectionOptions {
         return vscode.workspace
